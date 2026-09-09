@@ -3,4 +3,7 @@ dist/
 .env
 backend/data/
 *.log
+*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
 .DS_Store

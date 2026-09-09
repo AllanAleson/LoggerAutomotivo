@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, NavLink, Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Activity, AlertTriangle, Battery, Bell, ChevronRight, CircleGauge, Clock3, CloudDownload, Cpu, Database, Gauge, History, Info, LayoutDashboard, Menu, Radio, RefreshCw, Search, Settings, ShieldAlert, Signal, SlidersHorizontal, Wrench, X, XCircle } from 'lucide-react'
 import { API_URL, getJson, type EventItem, type Level, type Logger, type Part, type Status } from './api'
@@ -146,12 +146,16 @@ function Overview({ part }: { part: Part }) {
 function LogTab({ pieceId }: { pieceId: string }) {
   const [period, setPeriod] = useState('24h'), [level, setLevel] = useState(''), [event, setEvent] = useState(''), [page, setPage] = useState(1)
   const [start, setStart] = useState(''), [end, setEnd] = useState('')
-  const query = new URLSearchParams({ limit: '25', page: String(page) })
-  if (level) query.set('level', level); if (event) query.set('event', event)
-  const ago = period === '1h' ? 1 : period === '24h' ? 24 : period === '7d' ? 168 : period === '30d' ? 720 : 0
-  if (ago) query.set('startDate', new Date(Date.now() - ago * 3_600_000).toISOString())
-  if (period === 'custom' && start) query.set('startDate', new Date(start).toISOString())
-  if (period === 'custom' && end) query.set('endDate', new Date(end).toISOString())
+  const query = useMemo(() => {
+    const next = new URLSearchParams({ limit: '25', page: String(page) })
+    if (level) next.set('level', level)
+    if (event) next.set('event', event)
+    const ago = period === '1h' ? 1 : period === '24h' ? 24 : period === '7d' ? 168 : period === '30d' ? 720 : 0
+    if (ago) next.set('startDate', new Date(Date.now() - ago * 3_600_000).toISOString())
+    if (period === 'custom' && start) next.set('startDate', new Date(start).toISOString())
+    if (period === 'custom' && end) next.set('endDate', new Date(end).toISOString())
+    return next
+  }, [end, event, level, page, period, start])
   const { data, error, loading } = useApi<{ items: EventItem[]; count: number; limit: number }>(`/api/parts/${pieceId}/events?${query}`)
   const download = () => { const exportQuery = new URLSearchParams(query); exportQuery.delete('page'); exportQuery.delete('limit'); window.location.href = `${API_URL}/api/parts/${encodeURIComponent(pieceId)}/events/export?${exportQuery}` }
   return <div className="tab-content"><div className="panel filters"><div className="filter-head"><div><SlidersHorizontal /><div><h2>Consulta de eventos</h2><p>Filtre o período e a severidade dos registros.</p></div></div><button className="button primary" onClick={download}><CloudDownload />Download log</button></div><div className="filter-grid"><label>Período<select value={period} onChange={e => { setPeriod(e.target.value); setPage(1) }}><option value="1h">Última hora</option><option value="24h">Últimas 24 horas</option><option value="7d">Últimos 7 dias</option><option value="30d">Últimos 30 dias</option><option value="all">Todo o período</option><option value="custom">Personalizado</option></select></label><label>Severidade<select value={level} onChange={e => { setLevel(e.target.value); setPage(1) }}><option value="">Todas</option><option>INFO</option><option>WARNING</option><option>ERROR</option><option>CRITICAL</option></select></label><label>Evento<input value={event} onChange={e => { setEvent(e.target.value); setPage(1) }} placeholder="Ex.: TIMEOUT" /></label>{period === 'custom' && <><label>Início<input type="datetime-local" value={start} onChange={e => setStart(e.target.value)} /></label><label>Fim<input type="datetime-local" value={end} onChange={e => setEnd(e.target.value)} /></label></>}</div></div>

@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: logger_automotivo
+      POSTGRES_USER: logger
+      POSTGRES_PASSWORD: logger
+    ports:
+      - "5432:5432"
+    volumes:
+      - logger_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U logger -d logger_automotivo"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  logger_postgres_data:
