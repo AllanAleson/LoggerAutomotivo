@@ -1,0 +1,318 @@
+{
+  "version": 1,
+  "author": "Log Automotivo V1",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-devkit-c-v4",
+      "id": "esp",
+      "top": 70,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btnIgnition",
+      "top": -75,
+      "left": -220,
+      "attrs": {
+        "color": "red",
+        "label": "IN1 IGNITION"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btnLock",
+      "top": 5,
+      "left": -220,
+      "attrs": {
+        "color": "blue",
+        "label": "IN2 LOCK"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btnUnlock",
+      "top": 85,
+      "left": -220,
+      "attrs": {
+        "color": "green",
+        "label": "IN3 UNLOCK"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btnWindow",
+      "top": 165,
+      "left": -220,
+      "attrs": {
+        "color": "yellow",
+        "label": "IN4 WINDOW"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "rIgnition",
+      "top": -72,
+      "left": -48,
+      "rotate": 90,
+      "attrs": {
+        "value": "10000"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "rLock",
+      "top": 8,
+      "left": -48,
+      "rotate": 90,
+      "attrs": {
+        "value": "10000"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "rUnlock",
+      "top": 88,
+      "left": -48,
+      "rotate": 90,
+      "attrs": {
+        "value": "10000"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "rWindow",
+      "top": 168,
+      "left": -48,
+      "rotate": 90,
+      "attrs": {
+        "value": "10000"
+      }
+    },
+    {
+      "type": "wokwi-ds1307",
+      "id": "rtc",
+      "top": -95,
+      "left": 300,
+      "attrs": {
+        "label": "RTC"
+      }
+    },
+    {
+      "type": "wokwi-microsd-card",
+      "id": "sd",
+      "top": 70,
+      "left": 315,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-led",
+      "id": "ledStatus",
+      "top": 258,
+      "left": 270,
+      "attrs": {
+        "color": "limegreen",
+        "label": "STATUS"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "rLed",
+      "top": 264,
+      "left": 185,
+      "attrs": {
+        "value": "220"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "esp:TX",
+      "$serialMonitor:RX",
+      "",
+      []
+    ],
+    [
+      "esp:RX",
+      "$serialMonitor:TX",
+      "",
+      []
+    ],
+    [
+      "esp:3V3",
+      "rIgnition:1",
+      "red",
+      []
+    ],
+    [
+      "rIgnition:2",
+      "esp:34",
+      "orange",
+      []
+    ],
+    [
+      "btnIgnition:1.r",
+      "esp:34",
+      "orange",
+      []
+    ],
+    [
+      "btnIgnition:2.r",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "esp:3V3",
+      "rLock:1",
+      "red",
+      []
+    ],
+    [
+      "rLock:2",
+      "esp:35",
+      "blue",
+      []
+    ],
+    [
+      "btnLock:1.r",
+      "esp:35",
+      "blue",
+      []
+    ],
+    [
+      "btnLock:2.r",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "esp:3V3",
+      "rUnlock:1",
+      "red",
+      []
+    ],
+    [
+      "rUnlock:2",
+      "esp:32",
+      "green",
+      []
+    ],
+    [
+      "btnUnlock:1.r",
+      "esp:32",
+      "green",
+      []
+    ],
+    [
+      "btnUnlock:2.r",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "esp:3V3",
+      "rWindow:1",
+      "red",
+      []
+    ],
+    [
+      "rWindow:2",
+      "esp:33",
+      "gold",
+      []
+    ],
+    [
+      "btnWindow:1.r",
+      "esp:33",
+      "gold",
+      []
+    ],
+    [
+      "btnWindow:2.r",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "rtc:VCC",
+      "esp:5V",
+      "red",
+      []
+    ],
+    [
+      "rtc:GND",
+      "esp:GND.2",
+      "black",
+      []
+    ],
+    [
+      "rtc:SDA",
+      "esp:21",
+      "green",
+      []
+    ],
+    [
+      "rtc:SCL",
+      "esp:22",
+      "green",
+      []
+    ],
+    [
+      "sd:VCC",
+      "esp:5V",
+      "red",
+      []
+    ],
+    [
+      "sd:GND",
+      "esp:GND.2",
+      "black",
+      []
+    ],
+    [
+      "sd:SCK",
+      "esp:18",
+      "purple",
+      []
+    ],
+    [
+      "sd:DO",
+      "esp:19",
+      "violet",
+      []
+    ],
+    [
+      "sd:DI",
+      "esp:23",
+      "cyan",
+      []
+    ],
+    [
+      "sd:CS",
+      "esp:5",
+      "gray",
+      []
+    ],
+    [
+      "esp:25",
+      "rLed:1",
+      "limegreen",
+      []
+    ],
+    [
+      "rLed:2",
+      "ledStatus:A",
+      "limegreen",
+      []
+    ],
+    [
+      "ledStatus:C",
+      "esp:GND.2",
+      "black",
+      []
+    ]
+  ],
+  "dependencies": {}
+}
