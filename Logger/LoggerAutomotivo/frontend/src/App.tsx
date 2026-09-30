@@ -22,6 +22,7 @@ function useApi<T>(path: string, refreshMs = 0) {
         if (active && (err as Error).name !== 'AbortError') setError((err as Error).message)
       } finally { if (active) setLoading(false) }
     }
+    if (!path) { setData(null); setLoading(false); return }
     setLoading(true)
     load()
     const timer = refreshMs ? window.setInterval(load, refreshMs) : undefined
@@ -93,7 +94,7 @@ function EventRow({ event }: { event: EventItem }) {
 function SearchPage() {
   const [input, setInput] = useState('PT-00018429')
   const [query, setQuery] = useState('')
-  const { data, error, loading } = useApi<{ items: Part[]; count: number }>(query ? `/api/parts?search=${encodeURIComponent(query)}` : '')
+  const { data, error, loading } = useApi<{ items: Part[]; count: number }>(query ? `/api/parts?search=${encodeURIComponent(query)}` : '', 15000)
   const submitted = Boolean(query)
   return <section className="content"><PageTitle eyebrow="LOCALIZAÇÃO RÁPIDA" title="Pesquisar peça" text="Busque pelo ID da peça, número de série ou Logger associado." />
     <div className="search-hero"><form onSubmit={e => { e.preventDefault(); setQuery(input.trim()) }}><Search /><input value={input} onChange={e => setInput(e.target.value)} placeholder="Digite o ID da peça" aria-label="ID da peça, série ou Logger" /><button className="button primary" disabled={!input.trim()}>Pesquisar</button></form><div className="search-hint"><Info />Use, por exemplo, <button onClick={() => { setInput('PT-00018429'); setQuery('PT-00018429') }}>PT-00018429</button>, <button onClick={() => { setInput('SN-2026-18429'); setQuery('SN-2026-18429') }}>SN-2026-18429</button> ou <button onClick={() => { setInput('LOGGER-001'); setQuery('LOGGER-001') }}>LOGGER-001</button>.</div></div>

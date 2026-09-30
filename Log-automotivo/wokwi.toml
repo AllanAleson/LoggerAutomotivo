@@ -2,3 +2,7 @@
 version = 1
 firmware = '.pio/build/esp32dev/firmware.bin'
 elf = '.pio/build/esp32dev/firmware.elf'
+rfc2217ServerPort = 4000
+
+# VS Code bundles the Private IoT Gateway automatically.
+# ESP32 -> http://host.wokwi.internal:3333 -> Windows localhost:3333.

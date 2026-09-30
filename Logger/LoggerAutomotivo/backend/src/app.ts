@@ -56,7 +56,8 @@ function positiveInt(value: unknown, fallback: number, max: number) {
 
 function effectiveStatus(lastSeen: unknown, stored: unknown, threshold: number) {
   if (!lastSeen) return 'OFFLINE'
-  if (Date.now() - new Date(String(lastSeen)).getTime() > threshold * 60_000) return 'OFFLINE'
+  const instant = lastSeen instanceof Date ? lastSeen.getTime() : new Date(String(lastSeen)).getTime()
+  if (!Number.isFinite(instant) || Date.now() - instant > threshold * 60_000) return 'OFFLINE'
   return stored === 'WARNING' ? 'WARNING' : 'ONLINE'
 }
 
@@ -88,6 +89,7 @@ export function createApp(db: Database) {
   app.disable('x-powered-by')
   app.use(cors({ origin: process.env.CORS_ORIGIN?.split(',').map(x => x.trim()) ?? ['http://localhost:5173'] }))
   app.use(express.json({ limit: '256kb' }))
+  app.use('/api', (_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next() })
 
   app.get('/api/health', async (_req, res) => {
     await db.query('SELECT 1 AS ok')
@@ -182,7 +184,7 @@ export function createApp(db: Database) {
         INSERT INTO events (logger_id,timestamp,level,event,signal,expected,received,result,possible_cause,evidence,synchronized)
         SELECT id,$2::timestamptz,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11 FROM target RETURNING id
       ), updated AS (
-        UPDATE loggers SET last_seen=$2::timestamptz,status='ONLINE',updated_at=NOW() WHERE id IN (SELECT id FROM target)
+        UPDATE loggers SET last_seen=NOW(),status='ONLINE',updated_at=NOW() WHERE id IN (SELECT id FROM target)
       ) SELECT id, NOW() AS "receivedAt" FROM inserted
     `, [x.loggerId,x.timestamp,x.level,x.event,x.signal ?? null,x.expected ?? null,x.received ?? null,x.result ?? null,x.possibleCause ?? null,JSON.stringify(x.evidence),x.synchronized])
     if (!result.rows[0]) return res.status(404).json({ error: 'Logger não encontrado.' })
@@ -193,7 +195,7 @@ export function createApp(db: Database) {
     const parsed = heartbeatSchema.safeParse(req.body)
     if (!parsed.success) return res.status(400).json({ error: 'Payload inválido.', details: z.flattenError(parsed.error).fieldErrors })
     const x = parsed.data
-    const result = await db.query<Record<string, unknown>>(`UPDATE loggers SET last_seen=$2::timestamptz,status='ONLINE',battery_voltage=COALESCE($3,battery_voltage),firmware_version=COALESCE($4,firmware_version),pending_events=COALESCE($5,pending_events),updated_at=NOW() WHERE logger_id=$1 RETURNING logger_id AS "loggerId",last_seen AS "lastSeen",status,battery_voltage::float AS "batteryVoltage",firmware_version AS "firmwareVersion",pending_events AS "pendingEvents"`, [req.params.loggerId,x.timestamp,x.batteryVoltage ?? null,x.firmwareVersion ?? null,x.pendingEvents ?? null])
+    const result = await db.query<Record<string, unknown>>(`UPDATE loggers SET last_seen=NOW(),status='ONLINE',battery_voltage=COALESCE($2,battery_voltage),firmware_version=COALESCE($3,firmware_version),pending_events=COALESCE($4,pending_events),updated_at=NOW() WHERE logger_id=$1 RETURNING logger_id AS "loggerId",last_seen AS "lastSeen",status,battery_voltage::float AS "batteryVoltage",firmware_version AS "firmwareVersion",pending_events AS "pendingEvents"`, [req.params.loggerId,x.batteryVoltage ?? null,x.firmwareVersion ?? null,x.pendingEvents ?? null])
     if (!result.rows[0]) return res.status(404).json({ error: 'Logger não encontrado.' })
     res.json({ success: true, logger: result.rows[0] })
   })

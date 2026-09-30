@@ -83,3 +83,67 @@ describe('API Logger Automotivo', () => {
     assert.match(response.body.diagnosis.possibleCause, /^Possível/)
   })
 })
+
+describe('presence uses server receipt time', () => {
+  it('heartbeat -> ONLINE, timeout -> OFFLINE, new heartbeat -> ONLINE across every status endpoint', async () => {
+    const isolated = createDatabase({ memory: true })
+    const realNow = Date.now
+    const previousThreshold = process.env.OFFLINE_THRESHOLD_MINUTES
+    process.env.OFFLINE_THRESHOLD_MINUTES = '10'
+    try {
+      await migrate(isolated)
+      await isolated.query("SET TIME ZONE 'America/Sao_Paulo'")
+      await isolated.query("INSERT INTO loggers (logger_id) VALUES ('LOGGER-001')")
+      await isolated.query("INSERT INTO parts (piece_id, serial_number, model) VALUES ('PT-00018429', 'TEST-SERIAL', 'Test')")
+      await isolated.query(`INSERT INTO part_logger_assignments (part_id, logger_id)
+        SELECT p.id, l.id FROM parts p CROSS JOIN loggers l`)
+      const api = createApp(isolated)
+      const check = async (status: string) => {
+        const logger = await request(api).get('/api/loggers/LOGGER-001').expect(200)
+        assert.equal(logger.body.status, status)
+        assert.equal(logger.headers['cache-control'], 'no-store')
+        assert.equal((await request(api).get('/api/loggers').expect(200)).body.items[0].status, status)
+        assert.equal((await request(api).get('/api/parts?search=PT-00018429').expect(200)).body.items[0].status, status)
+        assert.equal((await request(api).get('/api/parts/PT-00018429').expect(200)).body.status, status)
+        const dashboard = (await request(api).get('/api/dashboard').expect(200)).body.summary
+        assert.equal(dashboard.online, status === 'ONLINE' ? 1 : 0)
+        assert.equal(dashboard.offline, status === 'OFFLINE' ? 1 : 0)
+      }
+      await check('OFFLINE')
+      for (const timestamp of ['2000-01-01T00:00:00Z', '2099-01-01T00:00:00Z', '2000-01-01T03:00:00+03:00']) {
+        Date.now = realNow
+        const before = realNow()
+        const heartbeat = await request(api).post('/api/loggers/LOGGER-001/heartbeat')
+          .send({ timestamp, batteryVoltage: 12.7, firmwareVersion: 'test', pendingEvents: 2 }).expect(200)
+        const received = Date.parse(heartbeat.body.logger.lastSeen)
+        assert.ok(received >= before && received <= realNow())
+        const persisted = (await request(api).get('/api/loggers/LOGGER-001').expect(200)).body
+        assert.equal(persisted.lastSeen, heartbeat.body.logger.lastSeen)
+        assert.equal(persisted.batteryVoltage, 12.7)
+        assert.equal(persisted.firmwareVersion, 'test')
+        assert.equal(persisted.pendingEvents, 2)
+        Date.now = () => received + 30_000
+        await check('ONLINE')
+        Date.now = () => received + 600_000
+        await check('ONLINE')
+        Date.now = () => received + 600_001
+        await check('OFFLINE')
+      }
+      Date.now = realNow
+      await request(api).post('/api/loggers/LOGGER-001/heartbeat').send({ timestamp: '2000-01-01T00:00:00Z' }).expect(200)
+      await check('ONLINE')
+      const before = realNow()
+      const event = await request(api).post('/api/events').send({ loggerId: 'LOGGER-001', timestamp: '2000-01-01T03:00:00+03:00', level: 'INFO', event: 'LOCK' }).expect(201)
+      const stored = await isolated.query<{ timestamp: Date }>('SELECT timestamp FROM events WHERE id=$1', [event.body.eventId])
+      assert.equal(stored.rows[0].timestamp.toISOString(), '2000-01-01T00:00:00.000Z')
+      const logger = (await request(api).get('/api/loggers/LOGGER-001').expect(200)).body
+      assert.ok(Date.parse(logger.lastSeen) >= before)
+      await check('ONLINE')
+    } finally {
+      Date.now = realNow
+      if (previousThreshold === undefined) delete process.env.OFFLINE_THRESHOLD_MINUTES
+      else process.env.OFFLINE_THRESHOLD_MINUTES = previousThreshold
+      await isolated.close()
+    }
+  })
+})

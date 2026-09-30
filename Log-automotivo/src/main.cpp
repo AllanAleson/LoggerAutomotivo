@@ -2,6 +2,8 @@
 #include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
+#include <time.h>
+#include <WiFi.h>
 
 // =====================================================
 // LOGGER
@@ -80,6 +82,31 @@ bool sdReady = false;
 bool ledActive = false;
 unsigned long ledStartMs = 0;
 
+void getRtcTimestamp(char *buffer, size_t maxLen);
+#include "network_transport.h"
+
+// RTC is UTC in this simulation. NTP supplies fallback time if RTC is absent.
+// Before NTP, build time + uptime keeps offline records valid ISO 8601.
+void fallbackTimestamp(char *buffer, size_t maxLen) {
+  time_t current = time(nullptr);
+  if (current < 1700000000) {
+    struct tm build{};
+    char month[4];
+    int day, year, hour, minute, second;
+    sscanf(__DATE__, "%3s %d %d", month, &day, &year);
+    sscanf(__TIME__, "%d:%d:%d", &hour, &minute, &second);
+    const char *months = "JanFebMarAprMayJunJulAugSepOctNovDec";
+    const char *match = strstr(months, month);
+    build.tm_mon = match ? (match - months) / 3 : 0;
+    build.tm_mday = day; build.tm_year = year - 1900;
+    build.tm_hour = hour; build.tm_min = minute; build.tm_sec = second;
+    current = mktime(&build) + millis() / 1000;
+  }
+  struct tm utc{};
+  gmtime_r(&current, &utc);
+  strftime(buffer, maxLen, "%Y-%m-%dT%H:%M:%SZ", &utc);
+}
+
 // =====================================================
 // RTC
 // =====================================================
@@ -96,12 +123,7 @@ void getRtcTimestamp(char *buffer, size_t maxLen) {
 
   if (Wire.endTransmission() != 0) {
 
-    snprintf(
-      buffer,
-      maxLen,
-      "millis:%lu",
-      millis()
-    );
+    fallbackTimestamp(buffer, maxLen);
 
     return;
   }
@@ -114,12 +136,7 @@ void getRtcTimestamp(char *buffer, size_t maxLen) {
 
   if (bytes < 7) {
 
-    snprintf(
-      buffer,
-      maxLen,
-      "millis:%lu",
-      millis()
-    );
+    fallbackTimestamp(buffer, maxLen);
 
     return;
   }
@@ -134,10 +151,10 @@ void getRtcTimestamp(char *buffer, size_t maxLen) {
       Wire.read()
     );
 
-  int hour =
-    bcdToDec(
-      Wire.read() & 0x3F
-    );
+  byte rawHour = Wire.read();
+  int hour = (rawHour & 0x40)
+    ? bcdToDec(rawHour & 0x1F) % 12 + ((rawHour & 0x20) ? 12 : 0)
+    : bcdToDec(rawHour & 0x3F);
 
   // ignora dia da semana
   Wire.read();
@@ -162,7 +179,7 @@ void getRtcTimestamp(char *buffer, size_t maxLen) {
     buffer,
     maxLen,
 
-    "%04d-%02d-%02dT%02d:%02d:%02d",
+    "%04d-%02d-%02dT%02d:%02d:%02dZ",
 
     year,
     month,
@@ -317,9 +334,16 @@ void appendLog(
     return;
   }
 
-  file.println(payload);
+  size_t saved = file.println(payload);
 
   file.close();
+
+  if (saved != strlen(payload) + 2) {
+    Serial.println("[SD] erro de escrita; evento nao transmitido");
+    sdReady = false;
+    return;
+  }
+  enqueueDurable(payload);
 
   triggerStatusLed();
 }
@@ -364,7 +388,7 @@ void testRTC() {
     );
 
     Serial.println(
-      "[AVISO] Usando millis()."
+      "[AVISO] Usando NTP ou data de compilacao + uptime ate sincronizar."
     );
   }
 }
@@ -484,6 +508,8 @@ void setup() {
   // SD
   initSD();
 
+  initNetwork();
+
   // Evento inicial
   appendLog(
     "SYS",
@@ -568,4 +594,7 @@ void loop() {
       );
     }
   }
+
+  updateNetwork(now);
+  delay(1);
 }

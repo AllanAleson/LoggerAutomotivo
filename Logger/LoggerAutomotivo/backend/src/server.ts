@@ -1,12 +1,12 @@
 import 'dotenv/config'
 import { createApp } from './app.js'
 import { createDatabase, migrate } from './database.js'
-import { seed } from './seed.js'
+
 
 const port = Number(process.env.PORT ?? 3333)
 const db = createDatabase()
 await migrate(db)
-await seed(db)
+// Demo data is created only by the explicit db:seed command.
 
 const server = createApp(db).listen(port, () => {
   console.log(`API Logger Automotivo disponível em http://localhost:${port}`)
